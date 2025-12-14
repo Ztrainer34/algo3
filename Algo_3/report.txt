@@ -18,3 +18,25 @@ n= 5 villes (0,1,2,3,4)
 donc nous obtenons u1 < u2 < u3 < u1 ce qui viole la contrainte
 
 et la 2e sous tour 0 → 4 → 0, les conditions des boucles for ne s’appliquent pas a ces sommets (for _ in range(1,n))
+
+
+
+DFJ
+
+Si nous prenons  k villes dans un sous ensemble S de villes , il ne peut pas avoir k arc qui relie les villes entre elles 
+
+La contrainte est $\sum_{i,j\in S}  x_{i,j} ≤ |S| - 1$
+
+Sommets V={0,1,2,3,4} , n = 5
+
+S={1,2,3}
+
+1→2→3→1
+
+la somme des arc dans le sous ensemble ne peut pas |S| - 1
+
+somme des arc : x_12 + x_23 + x_31 = 3
+
+mais |S| - 1 = 2
+
+nous avons une violation de contrainte 2 ≠ 3
