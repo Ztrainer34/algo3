@@ -44,6 +44,68 @@ def get_subtours(n, solution_arcs):
     return subtours
 
 
+def get_powerset(n):
+    """
+    Génère tous les sous-ensembles possibles des villes 0 à n-1.
+    Retourne une liste de listes.
+    """
+    # On commence avec l'ensemble vide
+    subsets = [[]]
+    
+    for city in range(n):
+        # Pour chaque ville, on crée de nouveaux sous-ensembles 
+        # en ajoutant cette ville à tout ce qui existe déjà
+        new_subsets = [subset + [city] for subset in subsets]
+        subsets.extend(new_subsets)
+        
+    return subsets
+
+def solve_dfj_enum(n, dist_matrix, relax=False):
+    # 1. Sécurité (Toujours indispensable)
+    if n > 15:
+        print(f"⚠️ SKIP: Instance trop grande (n={n}).")
+        return None, None, None
+
+    # 2. Initialisation
+    prob = pulp.LpProblem("TSP_DFJ_Enum", pulp.LpMinimize)
+    cities = range(n)
+    cat_type = pulp.LpContinuous if relax else pulp.LpBinary
+    
+    x = pulp.LpVariable.dicts("x",
+                              ((i, j) for i in cities for j in cities if i != j),
+                              lowBound=0, upBound=1, cat=cat_type)
+
+    prob += pulp.lpSum(dist_matrix[i][j] * x[i, j] for i in cities for j in cities if i != j)
+
+    for i in cities:
+        prob += pulp.lpSum(x[i, j] for j in cities if i != j) == 1
+    for j in cities:
+        prob += pulp.lpSum(x[i, j] for i in cities if i != j) == 1
+
+    # ---------------------------------------------------------
+    # 3. GÉNÉRATION DES CONTRAINTES 
+    # ---------------------------------------------------------
+    
+    # On récupère tous les sous-ensembles possibles
+    all_subsets = get_powerset(n)
+    
+    for subset in all_subsets:
+        k = len(subset)
+        # On ne garde que les sous-ensembles valides pour DFJ
+        # Taille min = 2, Taille max = n-1
+        if 2 <= k <= n - 1:
+            # Ajout de la contrainte : Somme arcs internes <= k - 1
+            prob += pulp.lpSum(x[i, j] for i in subset for j in subset if i != j) <= k - 1
+
+    # ---------------------------------------------------------
+
+    # 4. Résolution
+    start_time = time.time()
+    prob.solve(pulp.PULP_CBC_CMD(msg=0))
+    solve_time = time.time() - start_time
+
+    return prob, solve_time, x
+
 def solve_dfj_iterative(n, dist_matrix):
     """
     Implémente l'Algorithme 1 : Génération itérative de contraintes.
