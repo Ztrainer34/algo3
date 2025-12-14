@@ -1,0 +1,20 @@
+5.2 
+
+MTZ
+
+La contrainte MTZ force un ordre de visite, quand x[i,j] = 1, et si nous allons de i → j alors j doit être visité après i et donc on peut pas aller dans une ville où j < i. De plus, il est impossible de former un cycle ne contenant pas le sommet 0
+
+exemple 
+
+n= 5 villes (0,1,2,3,4)
+
+- arc 1→2 : u1 - u2 + 5*(1) ≤ 4  
+⇒ u1 < u2
+- arc 2→3 : u2 - u3 + 5*(1) ≤ 4 
+⇒ u2 < u3
+- arc 3→1 : u3 - u1 + 5*(1) ≤ 4
+⇒ u3 < u1
+
+donc nous obtenons u1 < u2 < u3 < u1 ce qui viole la contrainte
+
+et la 2e sous tour 0 → 4 → 0, les conditions des boucles for ne s’appliquent pas a ces sommets (for _ in range(1,n))
