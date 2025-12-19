@@ -176,8 +176,11 @@ def calculate_integrality_gap(integer_obj, relax_obj):
         return ''
     if relax_obj == 0:
         return ''
+    if integer_obj == 0: # Attention à la division par zéro
+        return ''
+    
     try:
-        gap = ((integer_obj - relax_obj) / relax_obj) * 100
+        gap = (integer_obj - relax_obj) / integer_obj
         return f"{gap:.6f}"
     except:
         return ''
