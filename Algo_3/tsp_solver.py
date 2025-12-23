@@ -8,7 +8,22 @@ import time
 # =============================================================================
 
 def read_instance(filename):
-    """Lit le fichier d'instance et retourne n et la matrice de distances."""
+    """
+    Lit le fichier d'instance TSP et retourne le nombre de villes et la matrice de distances.
+    
+    Le format du fichier attendu est :
+    - Ligne 1 : nombre de villes n
+    - Lignes 2 à n+1 : coordonnées des villes (ignorées)
+    - Lignes n+2 à 2n+1 : matrice de distances n x n
+    
+    Args:
+        filename (str): Chemin vers le fichier d'instance à lire.
+        
+    Returns:
+        tuple: (n, dist_matrix) où :
+            - n (int): Nombre de villes dans l'instance, ou None en cas d'erreur
+            - dist_matrix (list): Matrice de distances n x n, ou None en cas d'erreur
+    """
     try:
         with open(filename, 'r') as f:
             lines = [l.strip() for l in f.readlines() if l.strip()]
@@ -37,8 +52,20 @@ def read_instance(filename):
 
 def get_subtours(n, solution_arcs):
     """
-    Retourne la liste des cycles présents dans une solution donnée.
-    Utilisé pour DFJ Itératif et pour l'affichage du cycle final.
+    Retourne la liste des cycles (sous-tours) présents dans une solution donnée.
+    
+    Cette fonction analyse les arcs sélectionnés dans une solution TSP et identifie
+    tous les cycles présents. Utilisée pour la méthode DFJ itérative (détection
+    de sous-tours) et pour l'affichage du cycle final.
+    
+    Args:
+        n (int): Nombre total de villes dans l'instance.
+        solution_arcs (list): Liste de tuples (i, j) représentant les arcs
+            sélectionnés dans la solution.
+            
+    Returns:
+        list: Liste de cycles, où chaque cycle est une liste de nœuds dans l'ordre
+            de parcours. Un cycle hamiltonien complet contiendra n nœuds.
     """
     next_node = {}
     for (i, j) in solution_arcs:
@@ -70,7 +97,21 @@ def get_subtours(n, solution_arcs):
 
 
 def get_powerset(n):
-    """Génère tous les sous-ensembles possibles (pour DFJ Énumératif)."""
+    """
+    Génère tous les sous-ensembles possibles de l'ensemble {0, 1, ..., n-1}.
+    
+    Cette fonction est utilisée pour la formulation DFJ énumérative qui nécessite
+    toutes les contraintes de sous-tour a priori. Attention : la complexité est
+    exponentielle (2^n sous-ensembles), donc cette méthode n'est utilisable que
+    pour de petites instances (n <= 15).
+    
+    Args:
+        n (int): Nombre d'éléments dans l'ensemble (nombre de villes).
+        
+    Returns:
+        list: Liste de tous les sous-ensembles possibles, incluant l'ensemble vide.
+            Chaque sous-ensemble est représenté comme une liste d'entiers.
+    """
     subsets = [[]]
     for city in range(n):
         new_subsets = [subset + [city] for subset in subsets]
@@ -80,11 +121,21 @@ def get_powerset(n):
 
 def print_solution(prob, duration, x_vars, n, iterations=None):
     """
-    Affiche les résultats selon le format des consignes:
-    - Valeur de la fonction objectif
-    - Cycle hamiltonien (pour solutions entières uniquement)
-    - Temps de résolution en secondes
-    - Nombre d'itérations (pour méthode itérative uniquement)
+    Affiche les résultats de la résolution TSP selon le format requis.
+    
+    Les résultats affichés incluent :
+    - La valeur de la fonction objectif (coût total du cycle)
+    - Le cycle hamiltonien complet (uniquement pour solutions entières optimales)
+    - Le temps de résolution en secondes
+    - Le nombre d'itérations (uniquement pour la méthode itérative)
+    
+    Args:
+        prob (pulp.LpProblem): Problème linéaire résolu par PuLP.
+        duration (float): Temps de résolution en secondes.
+        x_vars (dict): Dictionnaire des variables de décision x[i, j] du problème.
+        n (int): Nombre de villes dans l'instance.
+        iterations (int, optional): Nombre d'itérations pour les méthodes itératives.
+            Par défaut None (non affiché pour les méthodes non-itératives).
     """
     if prob is None:
         print("Erreur: Impossible de résoudre cette instance avec cette méthode.")
@@ -146,7 +197,27 @@ def print_solution(prob, duration, x_vars, n, iterations=None):
 # =============================================================================
 
 def solve_mtz_relaxation(n, dist_matrix):
-    """Formulation MTZ (Miller-Tucker-Zemlin)."""
+    """
+    Résout le TSP en utilisant la formulation MTZ (Miller-Tucker-Zemlin) en relaxation continue.
+    
+    Cette méthode utilise la formulation MTZ avec des variables continues (relaxation)
+    au lieu de variables binaires. La solution obtenue est une borne inférieure du
+    problème TSP, mais n'est généralement pas une solution entière valide.
+    
+    La formulation MTZ utilise des variables de position u[i] pour éviter les sous-tours.
+    La contrainte MTZ : u[i] - u[j] + n * x[i, j] <= n - 1 pour i, j != 0, i != j.
+    
+    Args:
+        n (int): Nombre de villes dans l'instance.
+        dist_matrix (list): Matrice de distances n x n, où dist_matrix[i][j] est la
+            distance entre la ville i et la ville j.
+            
+    Returns:
+        tuple: (prob, duration, x) où :
+            - prob (pulp.LpProblem): Problème linéaire résolu
+            - duration (float): Temps de résolution en secondes
+            - x (dict): Dictionnaire des variables de décision x[i, j] (continues)
+    """
     prob = pulp.LpProblem("TSP_MTZ", pulp.LpMinimize)
     cities = range(n)
 
@@ -178,7 +249,27 @@ def solve_mtz_relaxation(n, dist_matrix):
     return prob, duration, x
 
 def solve_mtz(n, dist_matrix):
-    """Formulation MTZ (Miller-Tucker-Zemlin)."""
+    """
+    Résout le TSP en utilisant la formulation MTZ (Miller-Tucker-Zemlin) avec variables binaires.
+    
+    Cette méthode utilise la formulation MTZ classique avec des variables binaires x[i, j]
+    et des variables continues u[i] pour représenter la position de la ville i dans le tour.
+    La contrainte MTZ empêche la formation de sous-tours.
+    
+    La formulation MTZ utilise des variables de position u[i] pour éviter les sous-tours.
+    La contrainte MTZ : u[i] - u[j] + n * x[i, j] <= n - 1 pour i, j != 0, i != j.
+    
+    Args:
+        n (int): Nombre de villes dans l'instance.
+        dist_matrix (list): Matrice de distances n x n, où dist_matrix[i][j] est la
+            distance entre la ville i et la ville j.
+            
+    Returns:
+        tuple: (prob, duration, x) où :
+            - prob (pulp.LpProblem): Problème linéaire résolu
+            - duration (float): Temps de résolution en secondes
+            - x (dict): Dictionnaire des variables de décision x[i, j] (binaires)
+    """
     prob = pulp.LpProblem("TSP_MTZ", pulp.LpMinimize)
     cities = range(n)
 
@@ -207,7 +298,30 @@ def solve_mtz(n, dist_matrix):
 
 
 def solve_dfj_enum(n, dist_matrix):
-    """Formulation DFJ Énumérative (Génération de toutes les contraintes)."""
+    """
+    Résout le TSP en utilisant la formulation DFJ (Dantzig-Fulkerson-Johnson) énumérative.
+    
+    Cette méthode génère a priori toutes les contraintes de sous-tour possibles pour
+    tous les sous-ensembles de villes. La solution est garantie d'être optimale mais
+    la méthode est exponentielle en complexité (2^n contraintes).
+    
+    Pour des raisons de performance, cette méthode est limitée aux instances avec
+    n <= 15. Pour des instances plus grandes, utilisez solve_dfj_iterative.
+    
+    La contrainte DFJ pour un sous-ensemble S : sum(x[i, j] pour i, j dans S) <= |S| - 1
+    
+    Args:
+        n (int): Nombre de villes dans l'instance (doit être <= 15).
+        dist_matrix (list): Matrice de distances n x n, où dist_matrix[i][j] est la
+            distance entre la ville i et la ville j.
+            
+    Returns:
+        tuple: (prob, duration, x) où :
+            - prob (pulp.LpProblem): Problème linéaire résolu, ou None si n > 15
+            - duration (float): Temps de résolution en secondes (0 si n > 15)
+            - x (dict): Dictionnaire des variables de décision x[i, j] (binaires),
+                ou None si n > 15
+    """
     # Sécurité pour éviter le crash sur grandes instances
     if n > 15:
         return None, 0, None
@@ -238,7 +352,31 @@ def solve_dfj_enum(n, dist_matrix):
 
 
 def solve_dfj_enum_relax(n, dist_matrix):
-    """Formulation DFJ Énumérative (Génération de toutes les contraintes)."""
+    """
+    Résout le TSP en utilisant la formulation DFJ énumérative en relaxation continue.
+    
+    Cette méthode génère a priori toutes les contraintes de sous-tour possibles pour
+    tous les sous-ensembles de villes, mais utilise des variables continues au lieu
+    de variables binaires. La solution obtenue est une borne inférieure du problème
+    TSP, mais n'est généralement pas une solution entière valide.
+    
+    Pour des raisons de performance, cette méthode est limitée aux instances avec
+    n <= 15. Pour des instances plus grandes, utilisez solve_dfj_iterative.
+    
+    La contrainte DFJ pour un sous-ensemble S : sum(x[i, j] pour i, j dans S) <= |S| - 1
+    
+    Args:
+        n (int): Nombre de villes dans l'instance (doit être <= 15).
+        dist_matrix (list): Matrice de distances n x n, où dist_matrix[i][j] est la
+            distance entre la ville i et la ville j.
+            
+    Returns:
+        tuple: (prob, duration, x) où :
+            - prob (pulp.LpProblem): Problème linéaire résolu, ou None si n > 15
+            - duration (float): Temps de résolution en secondes (0 si n > 15)
+            - x (dict): Dictionnaire des variables de décision x[i, j] (continues),
+                ou None si n > 15
+    """
     # Sécurité pour éviter le crash sur grandes instances
     if n > 15:
         return None, 0, None
@@ -271,7 +409,32 @@ def solve_dfj_enum_relax(n, dist_matrix):
 
 
 def solve_dfj_iterative(n, dist_matrix):
-    """Formulation DFJ Itérative (Génération de contraintes à la volée)."""
+    """
+    Résout le TSP en utilisant la formulation DFJ itérative (génération de contraintes à la volée).
+    
+    Cette méthode résout le problème TSP en ajoutant itérativement les contraintes
+    de sous-tour uniquement lorsque nécessaire. À chaque itération :
+    1. Résout le problème relaxé
+    2. Détecte les sous-tours dans la solution
+    3. Ajoute des contraintes pour éliminer ces sous-tours
+    4. Répète jusqu'à obtenir un cycle hamiltonien complet
+    
+    Cette approche est beaucoup plus efficace que la méthode énumérative car elle
+    n'ajoute que les contraintes nécessaires, permettant de traiter des instances
+    plus grandes.
+    
+    Args:
+        n (int): Nombre de villes dans l'instance.
+        dist_matrix (list): Matrice de distances n x n, où dist_matrix[i][j] est la
+            distance entre la ville i et la ville j.
+            
+    Returns:
+        tuple: (prob, duration, x, iteration) où :
+            - prob (pulp.LpProblem): Problème linéaire résolu
+            - duration (float): Temps total de résolution en secondes (somme de toutes les itérations)
+            - x (dict): Dictionnaire des variables de décision x[i, j] (binaires)
+            - iteration (int): Nombre d'itérations effectuées avant convergence
+    """
     prob = pulp.LpProblem("TSP_DFJ_Iter", pulp.LpMinimize)
     cities = range(n)
     x = pulp.LpVariable.dicts("x", ((i, j) for i in cities for j in cities if i != j), cat='Binary')
